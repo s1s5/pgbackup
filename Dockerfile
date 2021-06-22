@@ -3,7 +3,7 @@ FROM python:3.9-alpine
 RUN mkdir -p /opt
 WORKDIR /opt
 
-RUN apk add --no-cache bash postgresql-client
+RUN apk add --no-cache bash postgresql-client gnupg curl
 RUN pip install awscli
 
 COPY run_backup.sh /opt/

@@ -7,17 +7,25 @@ eval `python extract_db_params_from_env.py`
 echo "backup ${PG_HOSTNAME}/${PG_DATABASE}"
 
 export BACKUP_FILENAME=/tmp/backup.sql.gz
+export DST_NAME=`date +"%Y%m%d%H%M%S"`.sql.gz
 pg_dump -h ${PG_HOSTNAME} -d ${PG_DATABASE} -U ${PG_USER} | gzip -9 -c > ${BACKUP_FILENAME}
 
-if [ ""${BACKUP_ENCRYPT_KEY} != "" ] ; then
+if [ "${BACKUP_ENCRYPT_KEY:-}" != "" ] ; then
+    echo "encrypting file"
     export GNUPGHOME=/tmp/
-    echo -n ${BACKUP_ENCRYPT_KEY} | gpg --no-tty -o ${BACKUP_FILENAME}.gpg --cipher-algo AES256 --passphrase-fd 0 -c ${BACKUP_FILENAME}
+    echo -n ${BACKUP_ENCRYPT_KEY} | gpg --batch --no-tty -o ${BACKUP_FILENAME}.gpg --cipher-algo AES256 --passphrase-fd 0 -c ${BACKUP_FILENAME}
     rm ${BACKUP_FILENAME}
-    FILENAME=${BACKUP_FILENAME}.gpg
+
+    export BACKUP_FILENAME=${BACKUP_FILENAME}.gpg
+    export DST_NAME=${DST_NAME}.gpg
 fi
 
-dst_path=s3://${S3_BUCKET_NAME}/${S3_PATH}/`date +"%Y-%m"`/`date +"%Y%m%d%H%M%S"`.sql.gz
+dst_path=s3://${S3_BUCKET_NAME}/${S3_PATH}/`date +"%Y-%m"`/${DST_NAME}
 echo "copy file to aws -> ${dst_path}"
 aws s3 cp ${BACKUP_FILENAME} ${dst_path}
+
+if [ "${POST_HOOK:-}" != "" ] ; then
+    ${POST_HOOK}
+fi
 
 rm -f ${BACKUP_FILENAME}
