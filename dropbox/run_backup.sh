@@ -1,0 +1,37 @@
+#!/bin/bash
+# -*- mode: shell-script -*-
+
+set -eu  # <= 0以外が返るものがあったら止まる, 未定義の変数を使おうとしたときに打ち止め
+
+eval `python extract_db_params_from_env.py`
+echo "backup ${PG_HOSTNAME}/${PG_DATABASE}"
+
+pg_isready -h ${PG_HOSTNAME} -d ${PG_DATABASE} -U ${PG_USER}
+if [ $? != 0 ]; then
+    echo "postgres not up"
+    exit 1
+fi   
+
+export BACKUP_FILENAME=/tmp/backup.sql.gz
+export DST_NAME=`date +"%Y%m%d%H%M%S"`.sql.gz
+pg_dump -h ${PG_HOSTNAME} -d ${PG_DATABASE} -U ${PG_USER} | gzip -9 -c > ${BACKUP_FILENAME}
+
+if [ "${BACKUP_ENCRYPT_KEY:-}" != "" ] ; then
+    echo "encrypting file"
+    export GNUPGHOME=/tmp/
+    echo -n ${BACKUP_ENCRYPT_KEY} | gpg --batch --no-tty -o ${BACKUP_FILENAME}.gpg --cipher-algo AES256 --passphrase-fd 0 -c ${BACKUP_FILENAME}
+    rm ${BACKUP_FILENAME}
+
+    export BACKUP_FILENAME=${BACKUP_FILENAME}.gpg
+    export DST_NAME=${DST_NAME}.gpg
+fi
+
+dst_path=/${DROPBOX_PATH}/`date +"%Y-%m"`/${DST_NAME}
+echo "copy file to dropbos -> ${dst_path}"
+python /opt/upload.py --src ${BACKUP_FILENAME} --dst ${dst_path}
+
+if [ "${POST_HOOK:-}" != "" ] ; then
+    ${POST_HOOK}
+fi
+
+rm -f ${BACKUP_FILENAME}
