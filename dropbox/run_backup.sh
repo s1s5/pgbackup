@@ -14,12 +14,7 @@ fi
 
 export BACKUP_FILENAME=/tmp/backup.sql.gz
 export DST_NAME=`date +"%Y%m%d%H%M%S"`.sql.gz
-pg_dump -h ${PG_HOSTNAME} -d ${PG_DATABASE} -U ${PG_USER} | gzip -9 -c > ${BACKUP_FILENAME}
-
-if [ ${PIPESTATUS[0]} != 0 ]; then
-    echo "failed to execute pg_dump"
-    exit 1
-fi
+pg_dump -h ${PG_HOSTNAME} -d ${PG_DATABASE} -U ${PG_USER} -Z 6 -f ${BACKUP_FILENAME}
 
 if [ "${BACKUP_ENCRYPT_KEY:-}" != "" ] ; then
     echo "encrypting file"
@@ -32,7 +27,7 @@ if [ "${BACKUP_ENCRYPT_KEY:-}" != "" ] ; then
 fi
 
 dst_path=/${DROPBOX_PATH}/`date +"%Y-%m"`/${DST_NAME}
-echo "copy file to dropbos -> ${dst_path}"
+echo "copy file to dropbox -> ${dst_path}"
 python /opt/upload.py --src ${BACKUP_FILENAME} --dst ${dst_path}
 
 if [ "${POST_HOOK:-}" != "" ] ; then
