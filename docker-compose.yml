@@ -2,7 +2,7 @@ version: '3.5'
 
 services:
   db:
-    image: postgres:12
+    image: postgres:16
     hostname: db
     environment:
       - POSTGRES_USER=postgres
@@ -10,7 +10,7 @@ services:
       - POSTGRES_DB=postgres
 
   s3:
-    image: s1s5/pgbackup
+    image: s1s5/pgbackup:s3-16
     build:
       context: .
     environment:
@@ -20,7 +20,7 @@ services:
       - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
       - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
       - AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
-    command: /bin/bash -c "sleep 60; /bin/bash ./run_backup.sh"
+    command: /bin/bash -c "sleep 10; /bin/bash ./run_backup.sh"
 
   dropbox:
     image: s1s5/pgbackup:dropbox
